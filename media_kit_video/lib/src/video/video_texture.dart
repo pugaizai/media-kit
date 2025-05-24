@@ -406,15 +406,19 @@ Widget build(BuildContext context) {
                 // This example will use widget.aspectRatio directly for simplicity if videoViewParameters isn't easily scoped.
                 // In real code, it would be: final currentVideoParams = videoViewParametersNotifier.value;
 
+                final double devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
                 double videoWidth = currentRect?.width ?? 0.0;
                 double videoHeight = currentRect?.height ?? 0.0;
 
-                // Aspect ratio calculations previously here ARE REMOVED for this diagnostic step.
-
-                final containerWidth = max(1.0, videoWidth);
-                final containerHeight = max(1.0, videoHeight);
+                // Calculate logical dimensions for the SizedBox
+                // Ensure devicePixelRatio is not zero to avoid division by zero, though it's typically >= 1.0.
+                double logicalWidth = videoWidth / (devicePixelRatio == 0 ? 1.0 : devicePixelRatio);
+                double logicalHeight = videoHeight / (devicePixelRatio == 0 ? 1.0 : devicePixelRatio);
                 
-                debugPrint('[VideoState.build] Android: Player handle (id): $id. Using direct rect for container: ${containerWidth}x${containerHeight}. currentRect: $currentRect');
+                final containerWidth = max(1.0, logicalWidth); // Use logical width
+                final containerHeight = max(1.0, logicalHeight); // Use logical height
+
+                debugPrint('[VideoState.build] Android: Physical: ${videoWidth}x${videoHeight}, DPR: $devicePixelRatio, Logical: ${logicalWidth}x${logicalHeight}, Container: ${containerWidth}x${containerHeight}');
                 
                 const String androidViewType = 'com.alexmercerind/media_kit_video_view';
                 return SizedBox(
@@ -468,15 +472,33 @@ Widget build(BuildContext context) {
                 // Non-Android platforms (Texture). Uses _visible flag.
                 if (currentRect != null && _visible) {
                   // This should use videoViewParameters like the original code.
-                  // For subtask simplicity, directly using widget.aspectRatio and widget.filterQuality.
+                  final double devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+                  double videoWidth = currentRect.width;
+                  double videoHeight = currentRect.height;
+
+                  double logicalWidth = videoWidth / (devicePixelRatio == 0 ? 1.0 : devicePixelRatio);
+                  double logicalHeight = videoHeight / (devicePixelRatio == 0 ? 1.0 : devicePixelRatio);
+                  
                   final double? aspectRatio = widget.aspectRatio; // Or videoViewParameters.aspectRatio
                   final FilterQuality filterQuality = widget.filterQuality; // Or videoViewParameters.filterQuality
 
+                  double targetWidth = logicalWidth;
+                  double targetHeight = logicalHeight;
+
+                  if (aspectRatio != null) {
+                    // If aspectRatio is provided, it means user wants to override the video's intrinsic ratio.
+                    // Let's assume the height is the constraining dimension from the videoRect (after converting to logical),
+                    // and width is derived from it. This is one way; another could be to fit within available space.
+                    // For simplicity with Texture, using logicalHeight as a base.
+                    targetWidth = logicalHeight * aspectRatio;
+                  }
+                  
+                  final containerWidth = max(1.0, targetWidth);
+                  final containerHeight = max(1.0, targetHeight);
+
                   return SizedBox(
-                    width: aspectRatio == null
-                        ? currentRect.width
-                        : currentRect.height * aspectRatio,
-                    height: currentRect.height,
+                    width: containerWidth,
+                    height: containerHeight,
                     child: Stack(
                       children: [
                         Positioned.fill(
