@@ -7,6 +7,8 @@ import 'dart:io';
 import 'dart:math'; // Import dart:math for max
 import 'dart:async';
 import 'package:flutter/foundation.dart'; // Import for debugPrint
+import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart'; // Import for PlatformViewHitTestBehavior
 import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit_video/media_kit_video_controls/media_kit_video_controls.dart';
@@ -420,13 +422,38 @@ Widget build(BuildContext context) {
                   height: containerHeight,
                   child: Stack(
                     children: [
-                      AndroidView(
+                      PlatformViewLink(
                         viewType: androidViewType,
-                        layoutDirection: TextDirection.ltr,
-                        creationParams: <String, dynamic>{
-                          'handle': id, // player handle
+                        surfaceFactory: (
+                          BuildContext context,
+                          PlatformViewController controller,
+                        ) {
+                          return PlatformViewSurface(
+                            controller: controller,
+                            hitTestBehavior: PlatformViewHitTestBehavior.opaque,
+                            gestureRecognizers: const <
+                                Factory<OneSequenceGestureRecognizer>>{},
+                          );
                         },
-                        creationParamsCodec: const StandardMessageCodec(),
+                        onCreatePlatformView: (
+                          PlatformViewCreationParams params,
+                        ) {
+                          return PlatformViewsService.initExpensiveAndroidView(
+                            id: params.id,
+                            viewType: androidViewType,
+                            layoutDirection: TextDirection.ltr,
+                            creationParams: <String, dynamic>{
+                              'handle': id, // player handle
+                            },
+                            creationParamsCodec: const StandardMessageCodec(),
+                            onFocus: () {
+                              params.onFocusChanged(true);
+                            },
+                          )
+                            ..addOnPlatformViewCreatedListener(
+                                params.onPlatformViewCreated)
+                            ..create();
+                        },
                       ),
                       // Optional: Visual placeholder if the actual video area is still tiny (e.g., 1x1)
                       // This uses the calculated (pre-max) videoWidth/videoHeight.
