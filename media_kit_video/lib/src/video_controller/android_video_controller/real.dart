@@ -85,7 +85,7 @@ class AndroidVideoController extends PlatformVideoController {
         debugPrint('[AndroidVideoController.widListener] handle: $logHandle - Done setProperty vo: null');
 
         final propertiesToSet = {
-          // 'android-surface-size': androidSurfaceSizeValue,
+          'android-surface-size': androidSurfaceSizeValue,
           'wid': widValue,
           'vo': voValue,
         };
