@@ -46,15 +46,15 @@ class AndroidVideoController extends PlatformVideoController {
     }
   }
 
-  Future<void> _updateNativeSurfaceSize(int width, int height) async {
+  Future<void> _updateMPVSize(int width, int height) async {
     String sizeString = "${width}x${height}";
     final handle = await player.handle; // For logging
-    debugPrint('[AndroidVideoController._updateNativeSurfaceSize] handle: $handle - Setting android-surface-size to: $sizeString');
+    debugPrint('[AndroidVideoController._updateMPVSize] handle: $handle - Setting android-surface-size to: $sizeString');
     try {
       await setProperty('android-surface-size', sizeString);
-      debugPrint('[AndroidVideoController._updateNativeSurfaceSize] handle: $handle - Successfully set android-surface-size to: $sizeString');
+      debugPrint('[AndroidVideoController._updateMPVSize] handle: $handle - Successfully set android-surface-size to: $sizeString');
     } catch (e, s) {
-      debugPrint('[AndroidVideoController._updateNativeSurfaceSize] handle: $handle - ERROR setting android-surface-size: $e $s');
+      debugPrint('[AndroidVideoController._updateMPVSize] handle: $handle - ERROR setting android-surface-size: $e $s');
     }
   }
 
@@ -95,33 +95,6 @@ class AndroidVideoController extends PlatformVideoController {
         debugPrint('[AndroidVideoController.widListener] handle: $logHandle - About to setProperties: $propertiesToSet');
         await setProperties(propertiesToSet);
         debugPrint('[AndroidVideoController.widListener] handle: $logHandle - Done setProperties.');
-
-        // NEW: Call _updateNativeSurfaceSize with current rect dimensions
-        final currentRect = rect.value;
-        if (currentRect != null && currentRect.width > 0 && currentRect.height > 0) {
-          debugPrint('[AndroidVideoController.widListener] handle: $logHandle - Calling _updateNativeSurfaceSize with initial rect: ${currentRect.width.toInt()}x${currentRect.height.toInt()}');
-          await _updateNativeSurfaceSize(currentRect.width.toInt(), currentRect.height.toInt());
-        } else {
-          // If rect is null or invalid, we might still want to set a default (e.g., 1x1) or log this.
-          // The _updateNativeSurfaceSize method itself uses "widthxheight", so 0x0 would be passed if currentRect is 0x0.
-          // Let's ensure 1x1 if rect is null or invalid, as mpv might not like 0x0 for android-surface-size.
-          // However, _updateNativeSurfaceSize expects int, and rect dimensions are double.
-          // The existing androidSurfaceSizeValue calculation was:
-          // final widthForSizing = rect.value?.width.toInt() ?? 1;
-          // final heightForSizing = rect.value?.height.toInt() ?? 1;
-          // Let's use that pattern to ensure positive integers.
-          final int surfaceWidthForMpv = (currentRect?.width ?? 0.0).toInt();
-          final int surfaceHeightForMpv = (currentRect?.height ?? 0.0).toInt();
-          // Ensure at least 1x1 if dimensions are zero, as mpv might require positive values.
-          final int effectiveWidth = surfaceWidthForMpv > 0 ? surfaceWidthForMpv : 1;
-          final int effectiveHeight = surfaceHeightForMpv > 0 ? surfaceHeightForMpv : 1;
-
-          debugPrint('[AndroidVideoController.widListener] handle: $logHandle - Calling _updateNativeSurfaceSize with rect (defaulting to 1x1 if needed): ${effectiveWidth}x${effectiveHeight}');
-          await _updateNativeSurfaceSize(effectiveWidth, effectiveHeight);
-        }
-        // END NEW PART
-
-        debugPrint('[AndroidVideoController.widListener] EXIT for player handle: $logHandle');
       } catch (e, s) {
         // Attempt to get handle again for error logging, in case it became available or failed initially
         try {
@@ -392,11 +365,11 @@ class AndroidVideoController extends PlatformVideoController {
                     if (parsedWid != 0 && parsedWid == oldWid && parsedRect.width > 0.0 && parsedRect.height > 0.0) {
                       // WID is the same as before and is not zero, new dimensions are valid.
                       // This means it's a size update for the existing surface.
-                      debugPrint('[AndroidVideoController.MethodHandler.VideoOutput.Resize] handle: $handle - WID unchanged ($parsedWid), rect changed to: ${parsedRect.width}x${parsedRect.height}. Explicitly calling _updateNativeSurfaceSize.');
-                      await controller._updateNativeSurfaceSize(parsedRect.width.toInt(), parsedRect.height.toInt());
+                      debugPrint('[AndroidVideoController.MethodHandler.VideoOutput.Resize] handle: $handle - WID unchanged ($parsedWid), rect changed to: ${parsedRect.width}x${parsedRect.height}. Explicitly calling _updateMPVSize.');
+                      await controller._updateMPVSize(parsedRect.width.toInt(), parsedRect.height.toInt());
                     } else if (parsedWid != oldWid) {
                       // This case is implicitly handled because controller.wid.value changing will trigger widListener,
-                      // which already calls _updateNativeSurfaceSize.
+                      // which already calls _updateMPVSize.
                       // Add a log for clarity.
                       debugPrint('[AndroidVideoController.MethodHandler.VideoOutput.Resize] handle: $handle - WID changed from $oldWid to $parsedWid. widListener will handle surface size update.');
                     }
