@@ -49,12 +49,12 @@ class AndroidVideoController extends PlatformVideoController {
   Future<void> _updateMPVSize(int width, int height) async {
     String sizeString = "${width}x${height}";
     final handle = await player.handle; // For logging
-    debugPrint('[AndroidVideoController._updateMPVSize] handle: $handle - Setting android-surface-size to: $sizeString');
+    debugPrint('[AndroidVideoController._updateMPVSize] handle: $handle - Setting mpv-surface-size to: $sizeString');
     try {
       await setProperty('android-surface-size', sizeString);
-      debugPrint('[AndroidVideoController._updateMPVSize] handle: $handle - Successfully set android-surface-size to: $sizeString');
+      debugPrint('[AndroidVideoController._updateMPVSize] handle: $handle - Successfully set mpv-surface-size to: $sizeString');
     } catch (e, s) {
-      debugPrint('[AndroidVideoController._updateMPVSize] handle: $handle - ERROR setting android-surface-size: $e $s');
+      debugPrint('[AndroidVideoController._updateMPVSize] handle: $handle - ERROR setting mpv-surface-size: $e $s');
     }
   }
 
@@ -85,7 +85,7 @@ class AndroidVideoController extends PlatformVideoController {
         debugPrint('[AndroidVideoController.widListener] handle: $logHandle - Done setProperty vo: null');
 
         final propertiesToSet = {
-          'android-surface-size': androidSurfaceSizeValue,
+          // 'android-surface-size': androidSurfaceSizeValue,
           'wid': widValue,
           'vo': voValue,
         };
