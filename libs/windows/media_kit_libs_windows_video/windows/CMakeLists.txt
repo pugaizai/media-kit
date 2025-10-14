@@ -68,7 +68,7 @@ set(LIBMPV "mpv-dev-x86_64-20251014-git-ad59ff1.7z")
 
 # Download URL & MD5 hash of the libmpv archive.
 set(LIBMPV_URL "https://github.com/Predidit/libmpv-win32-video-cmake/releases/download/20251014/${LIBMPV}")
-set(LIBMPV_MD5 "546a14ce7e6a1f51fa225031dee29661")
+set(LIBMPV_MD5 "6c523b6db73bfb8553ee7dd5db12cb9e")
 
 # Download location of the libmpv archive.
 set(LIBMPV_ARCHIVE "${CMAKE_BINARY_DIR}/${LIBMPV}")
