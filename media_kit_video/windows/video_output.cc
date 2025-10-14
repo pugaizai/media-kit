@@ -35,7 +35,6 @@ VideoOutput::VideoOutput(int64_t handle,
     // Initialize video playback with hardware acceleration using native D3D11.
     auto is_hardware_acceleration_enabled = false;
     
-    // Attempt to use H/W rendering with native DXGI/D3D11.
     if (configuration.enable_hardware_acceleration) {
       try {
         // Create D3D11 renderer with swap chain.
@@ -46,7 +45,9 @@ VideoOutput::VideoOutput(int64_t handle,
         // Initialize mpv with the D3D11 device and swap chain
         mpv_dxgi_init_params init_params = {
             d3d11_renderer_->device(),
-            d3d11_renderer_->swap_chain()  // Must provide swap chain, not nullptr
+            // Must provide swap chain, not nullptr
+            // Otherwise, you will get freeze.
+            d3d11_renderer_->swap_chain()
         };
         
         mpv_render_param params[] = {
