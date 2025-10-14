@@ -31,6 +31,7 @@ class D3D11Renderer {
   const int32_t height() const { return height_; }
   const HANDLE handle() const { return handle_; }
   ID3D11Device* device() const { return d3d_11_device_; }
+  IDXGISwapChain* swap_chain() const { return swap_chain_; }
 
   D3D11Renderer(int32_t width, int32_t height);
 
@@ -57,8 +58,9 @@ class D3D11Renderer {
   // D3D 11
   ID3D11Device* d3d_11_device_ = nullptr;
   ID3D11DeviceContext* d3d_11_device_context_ = nullptr;
+  IDXGISwapChain* swap_chain_ = nullptr;
 
-  // Shared texture for Flutter rendering
+  // Shared texture for Flutter rendering (created from swap chain back buffer)
   Microsoft::WRL::ComPtr<ID3D11Texture2D> shared_texture_;
 
   static int instance_count_;

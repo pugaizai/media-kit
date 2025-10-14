@@ -50,17 +50,45 @@ void D3D11Renderer::SetSize(int32_t width, int32_t height) {
   }
   width_ = width;
   height_ = height;
-  CleanUp(false);
+  
+  // Release the old texture reference
+  if (shared_texture_) {
+    shared_texture_->Release();
+    shared_texture_ = nullptr;
+  }
+  
+  // Resize the swap chain (this will resize the back buffer)
+  if (swap_chain_) {
+    auto hr = swap_chain_->ResizeBuffers(1, width_, height_,
+                                        DXGI_FORMAT_B8G8R8A8_UNORM, 0);
+    if (FAILED(hr)) {
+      std::cout << "media_kit: D3D11Renderer: Failed to resize swap chain"
+                << std::endl;
+      return;
+    }
+  }
+  
+  // Recreate the shared texture with the new size
   CreateTexture();
 }
 
 void D3D11Renderer::CopyTexture() {
   ::WaitForSingleObject(mutex_, INFINITE);
-  // The actual texture copying is handled by mpv's render context
-  // We just need to ensure synchronization here
-  if (d3d_11_device_context_ != nullptr) {
-    d3d_11_device_context_->Flush();
+  
+  // With native DXGI rendering, mpv renders directly to the swap chain's back buffer.
+  // We need to copy the back buffer to our shared texture for Flutter.
+  if (d3d_11_device_context_ != nullptr && swap_chain_ != nullptr && shared_texture_) {
+    // Get the back buffer from the swap chain
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> back_buffer;
+    auto hr = swap_chain_->GetBuffer(0, __uuidof(ID3D11Texture2D),
+                                     (void**)&back_buffer);
+    if (SUCCEEDED(hr) && back_buffer) {
+      // Copy from back buffer to shared texture
+      d3d_11_device_context_->CopyResource(shared_texture_.Get(), back_buffer.Get());
+      d3d_11_device_context_->Flush();
+    }
   }
+  
   ::ReleaseMutex(mutex_);
 }
 
@@ -69,6 +97,12 @@ void D3D11Renderer::CleanUp(bool release_device) {
   if (shared_texture_) {
     shared_texture_->Release();
     shared_texture_ = nullptr;
+  }
+
+  // Release swap chain
+  if (swap_chain_) {
+    swap_chain_->Release();
+    swap_chain_ = nullptr;
   }
 
   // Release device and context if the instance is being destroyed
@@ -113,12 +147,29 @@ bool D3D11Renderer::CreateD3D11Device() {
     }
   }
 
-  auto hr = ::D3D11CreateDevice(
+  // Create swap chain descriptor for offscreen rendering
+  DXGI_SWAP_CHAIN_DESC swap_chain_desc = {};
+  swap_chain_desc.BufferDesc.Width = width_;
+  swap_chain_desc.BufferDesc.Height = height_;
+  swap_chain_desc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+  swap_chain_desc.BufferDesc.RefreshRate.Numerator = 0;
+  swap_chain_desc.BufferDesc.RefreshRate.Denominator = 1;
+  swap_chain_desc.SampleDesc.Count = 1;
+  swap_chain_desc.SampleDesc.Quality = 0;
+  swap_chain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+  swap_chain_desc.BufferCount = 1;
+  // Use desktop window for offscreen rendering
+  swap_chain_desc.OutputWindow = ::GetDesktopWindow();
+  swap_chain_desc.Windowed = TRUE;
+  swap_chain_desc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+
+  auto hr = ::D3D11CreateDeviceAndSwapChain(
       adapter, driver_type, 0, 0, feature_levels,
       sizeof(feature_levels) / sizeof(D3D_FEATURE_LEVEL), D3D11_SDK_VERSION,
+      &swap_chain_desc, &swap_chain_,
       &d3d_11_device_, nullptr, &d3d_11_device_context_);
 
-  CHECK_HRESULT("D3D11CreateDevice");
+  CHECK_HRESULT("D3D11CreateDeviceAndSwapChain");
 
   Microsoft::WRL::ComPtr<IDXGIDevice> dxgi_device = nullptr;
   auto dxgi_device_success = d3d_11_device_->QueryInterface(
@@ -136,6 +187,8 @@ bool D3D11Renderer::CreateD3D11Device() {
 }
 
 bool D3D11Renderer::CreateTexture() {
+  // Create a separate shared texture for Flutter
+  // (The swap chain back buffer cannot be shared directly with Flutter)
   D3D11_TEXTURE2D_DESC texture_desc = {0};
   texture_desc.Width = width_;
   texture_desc.Height = height_;
@@ -155,7 +208,7 @@ bool D3D11Renderer::CreateTexture() {
 
   Microsoft::WRL::ComPtr<IDXGIResource> resource;
   hr = shared_texture_.As(&resource);
-  CHECK_HRESULT("ID3D11Texture2D::As");
+  CHECK_HRESULT("ID3D11Texture2D::As<IDXGIResource>");
 
   // Retrieve the shared HANDLE for interop with Flutter
   hr = resource->GetSharedHandle(&handle_);

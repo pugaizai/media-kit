@@ -38,15 +38,15 @@ VideoOutput::VideoOutput(int64_t handle,
     // Attempt to use H/W rendering with native DXGI/D3D11.
     if (configuration.enable_hardware_acceleration) {
       try {
-        // Create D3D11 renderer.
+        // Create D3D11 renderer with swap chain.
         d3d11_renderer_ = std::make_unique<D3D11Renderer>(
             static_cast<int32_t>(width_.value_or(1)),
             static_cast<int32_t>(height_.value_or(1)));
         
-        Resize(width_.value_or(1), height_.value_or(1));
+        // Initialize mpv with the D3D11 device and swap chain
         mpv_dxgi_init_params init_params = {
             d3d11_renderer_->device(),
-            nullptr
+            d3d11_renderer_->swap_chain()  // Must provide swap chain, not nullptr
         };
         
         mpv_render_param params[] = {
@@ -64,15 +64,30 @@ VideoOutput::VideoOutput(int64_t handle,
                 that->NotifyRender();
               },
               reinterpret_cast<void*>(this));
+          
+          // Now create the Flutter texture after successful render context creation
+          Resize(width_.value_or(1), height_.value_or(1));
+          
           // Set flag to true, indicating that H/W rendering is supported.
           is_hardware_acceleration_enabled = true;
           std::cout << "media_kit: VideoOutput: Using native D3D11 H/W rendering."
                     << std::endl;
+        } else {
+          std::cout << "media_kit: VideoOutput: Failed to create mpv render context."
+                    << std::endl;
+          d3d11_renderer_.reset(nullptr);
         }
+      } catch (const std::exception& e) {
+        // Fallback to software rendering.
+        std::cout << "media_kit: VideoOutput: Failed to initialize D3D11: " 
+                  << e.what() << ", falling back to S/W."
+                  << std::endl;
+        d3d11_renderer_.reset(nullptr);
       } catch (...) {
         // Fallback to software rendering.
         std::cout << "media_kit: VideoOutput: Failed to initialize D3D11, falling back to S/W."
                   << std::endl;
+        d3d11_renderer_.reset(nullptr);
       }
     }
     
